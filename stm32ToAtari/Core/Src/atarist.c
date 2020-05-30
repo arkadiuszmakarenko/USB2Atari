@@ -377,10 +377,16 @@ void send_keysToAtari(uint8_t key, uint8_t isPress)
 
 void processKbd(HID_KEYBD_Info_TypeDef *keyboard)
 {
+	int maybe_reset = 0;
 	int i = 0;
 	int j = 0;
 	static keyboard_code_t prevkeycode = {0};
 	uint8_t atarikeycode = 0;
+
+
+	//Check for reset
+	if (keyboard->lalt==1 &&  keyboard->lctrl==1)
+		maybe_reset =1;
 
 
 	// LEFT SHIFT
@@ -395,6 +401,7 @@ void processKbd(HID_KEYBD_Info_TypeDef *keyboard)
 	{
 		prevkeycode.lalt = keyboard->lalt;
 		send_keysToAtari(0x38, keyboard->lalt);
+
 	}
 
 	// LEFT CTRL
@@ -500,6 +507,16 @@ void processKbd(HID_KEYBD_Info_TypeDef *keyboard)
 		{
 			if (keysToPress[i] != 0x00)
 			{
+				if (maybe_reset == 1 && keysToPress[i]==KEY_DELETE)
+				{
+					//reset time
+					  HAL_GPIO_WritePin(RESET_GPIO_Port, RESET_Pin, GPIO_PIN_RESET);
+					  HAL_Delay(500);
+					  HAL_GPIO_WritePin(RESET_GPIO_Port, RESET_Pin, GPIO_PIN_SET);
+
+				}
+
+
 				atarikeycode = 0x00;
 				atarikeycode = mapUSBtoAtari(keysToPress[i]);
 
