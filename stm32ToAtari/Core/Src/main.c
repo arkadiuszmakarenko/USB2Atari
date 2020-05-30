@@ -127,7 +127,7 @@ uint8_t MapJoystick(uint8_t joystick_data)
 
 
 		   	//fire
-		   	if((joystick_data>>7&0x1)||(joystick_data>>6&0x1)||(joystick_data>>5&0x1)||(joystick_data>>4&0x1))
+		   	if((joystick_data>>7&0x1)||(joystick_data>>6&0x1)||(joystick_data>>5&0x1))
 		   			{
 		   				joymapped = joymapped|0x80;
 		   			}
@@ -139,8 +139,8 @@ uint8_t MapJoystick(uint8_t joystick_data)
 
 
 
-		   	//UP = (*joymap>>3&0x1);
-		   	if(joystick_data>>3&0x1)
+		   	//UP = (*joymap>>3&0x1); Map one of buttons as a jump.
+		   	if((joystick_data>>3&0x1)||(joystick_data>>4&0x1))
 		   	{
 		   		joymapped = joymapped|0x01;
 		   	}
