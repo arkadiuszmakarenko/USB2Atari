@@ -24,7 +24,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "atarist.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -37,18 +37,24 @@
  HID_USBDevicesTypeDef* usb;
  HID_KEYBD_Info_TypeDef *k_pinfo;
  HAL_StatusTypeDef status;
- uint8_t RxBuffer[1] = {0};
+ uint8_t RxBuffer[2] = {0};
 
  //keyboard state
  uint8_t kb_reset = 0;
  uint8_t  joy_inter_mode = 0;
  uint8_t  joy_even_rpt = 1;
  uint8_t sendJoyData_flag = 0;
+ uint8_t mouse_disable = 0;
 
- //joystick data for interrogation mode
+ //joystick data
  uint8_t  joydata1 = 0;
  uint8_t  joydata2 = 0;
 
+ uint8_t joydata1_prev = 0;
+ uint8_t joydata2_prev = 0;
+
+
+ ////
 
 
 
@@ -177,7 +183,7 @@ int main(void)
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+   HAL_Init();
 
   /* USER CODE BEGIN Init */
 
@@ -196,10 +202,15 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
+  initKeyboard(&huart2);
 
   HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+
+
+  //Ack start
   HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+  printf("!!STM32ToAtari started!! \r\n");
 
 
   /* USER CODE END 2 */
@@ -226,7 +237,7 @@ Y                   ; delta y as twos complement integer
   */
 
 
- if (usb->mouse!=NULL && joy_inter_mode == 0)
+ if (usb->mouse!=NULL && joy_inter_mode == 0 && mouse_disable != 1)
  {
 	 uint8_t mouse[3] = {0};
 	 mouse[0] = 0xF8;
@@ -247,22 +258,27 @@ Y                   ; delta y as twos complement integer
  //handle even joy
  if(usb!=NULL&&usb->gamepad1!=NULL)
  {
+	 //variables
+	 uint8_t joy1_package_event[2] = {0};
+
 	 //set data for interrogation mode
 	 joydata1 = *usb->gamepad1;
 
 	 //send data for event mode
 	if (joy_even_rpt==1)
 	 {
-	 uint8_t joy1_package[3] = {0};
-	 joy1_package[0] = 0xFE;
-	 joy1_package[1] = MapJoystick(joydata1);
-	 joy1_package[2] = 0x00;
-	 	 HAL_UART_Transmit(&huart2, joy1_package, 3, 100);
-	 	 HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+		if(joydata1_prev!=joydata1)
+		{
+			joy1_package_event[0] = 0xFE;
+			joy1_package_event[1] = MapJoystick(joydata1);
+			HAL_UART_Transmit(&huart2, joy1_package_event, 2, 10);
+		}
 	 }
+	joydata1_prev = joydata1;
+
  }
-    /* USER CODE END WHILE */
-    MX_USB_HOST_Process();
+
+
 
     /* USER CODE BEGIN 3 */
   }
@@ -436,6 +452,8 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
   /* Prevent unused argument(s) compilation warning */
 	  if (huart->ErrorCode == HAL_UART_ERROR_ORE){
 
+		  printf("UART ORE! Scotty more power! should not happen. /r/n");
+
 
 	        // remove the error condition
 
@@ -462,6 +480,9 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
+
+	if(RxBuffer[0]!=0x16)
+  printf("Command recieced %x \r\n",RxBuffer[0]);
   /* Prevent unused argument(s) compilation warning */
   UNUSED(huart);
 
@@ -477,10 +498,14 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   	 sendJoyData_flag = 0;
   	 joydata1 = 0;
   	 joydata2 = 0;
+  	 joydata1_prev = 0;
+  	 joydata2_prev = 0;
+  	 mouse_disable = 0;
 
 
   	 HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
   	 HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+  	 printf("Reboot completed\r\n");
   }
   else
   {
@@ -489,7 +514,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
   if (RxBuffer[0]==0x80)
   {
-  	kb_reset =1;
+	  printf("Reboot started\r\n");
+  	  kb_reset =1;
   }
 
   //Set event reporting
@@ -497,6 +523,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   {
   	joy_inter_mode = 0;
   	joy_even_rpt = 1;
+  	printf("Event joystick reporting mode\r\n");
 
   }
 
@@ -504,10 +531,25 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   // set interrogation mode.
   if (RxBuffer[0]==0x15)
   {
-	HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
+	  printf("Joystick interrogation mode \r\n");
   	joy_inter_mode = 1;
   	joy_even_rpt = 0;
+  	mouse_disable = 1;
   }
+
+  if (RxBuffer[0]==0x11)
+    {
+  	  printf("Resume \r\n");
+  	  mouse_disable = 0;
+    }
+
+  if (RxBuffer[0]==0x12)
+   {
+ 	  printf("Mouse disable \r\n");
+ 	  mouse_disable = 1;
+   }
+
+
 
 
   if (RxBuffer[0]==0x16)

@@ -257,7 +257,7 @@ static const uint8_t mapUSBtoAtariCodes[KEYCODE_TAB_SIZE][2] =
 		{KEY_P,								0x19},
 		{KEY_OBRACKET_AND_OBRACE,			0x1A},
 		{KEY_CBRACKET_AND_CBRACE,			0x1B},
-		{KEY_RETURN,						0x1C},
+		{KEY_ENTER,							0x1C},
 		{KEY_LEFTCONTROL,					0x1D},
 		{KEY_A,								0x1E},
 		{KEY_S,								0x1F},
