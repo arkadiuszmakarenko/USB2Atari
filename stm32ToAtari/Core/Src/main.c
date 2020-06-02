@@ -203,6 +203,10 @@ int main(void)
    //Set defaults
    MouseStatus.mouse_threshold_x = 1;
    MouseStatus.mouse_threshold_y = 1;
+
+   MouseStatus.absolute_mouse_max_x = 0xFFFF;
+   MouseStatus.absolute_mouse_max_y = 0xFFFF;
+
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -282,8 +286,33 @@ Y                   ; delta y as twos complement integer
 		 //MouseButtons = 0;
 		 //MouseButtons = MouseButtons|(usb->mouse->buttons[0]<<1);
 		 //MouseButtons = MouseButtons||(usb->mouse->buttons[1]);
-		 MouseStatus.absolute_mouse_X = (MouseStatus.absolute_mouse_X) + (usb->mouse->x);
-		 MouseStatus.absolute_mouse_Y = (MouseStatus.absolute_mouse_Y) + (usb->mouse->y);
+
+	   int new_x_coordinate =  (MouseStatus.absolute_mouse_x) + (usb->mouse->x);
+	   if (new_x_coordinate < 0)
+		   {
+		   new_x_coordinate = 0 ;
+		   }
+	   	   	   else if (new_x_coordinate > MouseStatus.absolute_mouse_max_x)
+	   	   	   {
+	   	   		   new_x_coordinate = MouseStatus.absolute_mouse_max_x;
+	   	   	   }
+
+
+	   int new_y_coordinate =  (MouseStatus.absolute_mouse_y) + (usb->mouse->y);
+	   if (new_y_coordinate < 0)
+		   {
+		   	   new_y_coordinate = 0;
+		   }
+	   	   	   else if (new_y_coordinate > MouseStatus.absolute_mouse_max_y )
+	   	   	   {
+	   	   		   	   new_y_coordinate = MouseStatus.absolute_mouse_max_y;
+	   	   	   }
+
+
+
+
+	   MouseStatus.absolute_mouse_x = (uint16_t)new_x_coordinate;
+	   MouseStatus.absolute_mouse_y = (uint16_t)new_y_coordinate;
 
 	 }
 
@@ -557,24 +586,44 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   	  	  		  	  }
   	  	  		  break;
 
+  	    	  case SET_ABSOLUTE_MOUSE_POSITIONING:
+
+	  	  		  MouseStatus.absolute_mouse_max_x = (RxBuffer[0]<<8u)|RxBuffer[1];
+	  	  		  MouseStatus.absolute_mouse_max_y = (RxBuffer[2]<<8u)|RxBuffer[3];
+
+  	    	  	  HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+  	    	  	  RxPrev = 0;
+  	    	  	  return;
+  	    	  break;
+
   	  	  	  case SET_MOUSE_THRESHOLD:
   	  	  		  	  MouseStatus.mouse_threshold_x = RxBuffer[0];
   	  	  		  	  MouseStatus.mouse_threshold_y = RxBuffer[1];
-  	  	  		  	  HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+
   	  	  		  	  RxPrev = 0;
+  	  	  		  	  HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+
   	  	  		  	  return;
   	  	  	  break;
 
-  	  	  	  case SET_ABSOLUTE_MOUSE_POSITIONING:
+  	  	  	  case SET_MOUSE_SCALE:
+  	  				MouseStatus.mouse_scale_x = RxBuffer[0];
+  	  				MouseStatus.mouse_scale_y = RxBuffer[1];
 
-  	  	  		  	  	  	  MouseStatus.absolute_mouse_X= 0; //= RxBuffer[0];
-  	  	  		  	  	  	  MouseStatus.absolute_mouse_Y = 0; //= RxBuffer[1];
+				  	HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+				  	RxPrev = 0;
+				    return;
+			  break;
 
-  	  	  				      printf("%X %X %X %X %X \r\n", RxBuffer[0], RxBuffer[1], RxBuffer[2], RxBuffer[3],RxBuffer[4]);
-  	  	   	  	  		  	  HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
-  	  	   	  	  		  	  RxPrev = 0;
-  	  	   	  	  		  	  return;
-  	  	   	  break;
+  	  	  	  case LOAD_MOUSE_POSITION:
+  	  	  		  	MouseStatus.absolute_mouse_x = (RxBuffer[1]<<8u)|RxBuffer[2];
+  	  	  		  	MouseStatus.absolute_mouse_y = (RxBuffer[3]<<8u)|RxBuffer[4];
+
+  	  	  			HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+  	  	  		  	RxPrev = 0;
+  	  	  			return;
+  	  	  	  break;
+
 
 
   	  	   	  default:
@@ -610,9 +659,11 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	  case SET_MOUSE_KEYCODE :
 	  	  		  //TODO
 	  break;
-	  case SET_MOUSE_SCALE :
-	  	  		  //TODO
-	  break;
+	  case SET_MOUSE_SCALE:
+	  		  RxPrev = SET_MOUSE_SCALE;
+	  		  HAL_UART_Receive_IT(&huart2, RxBuffer, 2);
+	  		  return;
+	   break;
 
 	  /*0x0D
 	  Returns:
@@ -633,16 +684,21 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 		  mouse_absolute_report[0] = 0xF7;
 		  mouse_absolute_report[1] = 0x00; //TODO buttons
-		  mouse_absolute_report[2] = *((uint8_t*)&(MouseStatus.absolute_mouse_X)+1);
-		  mouse_absolute_report[3] = *((uint8_t*)&(MouseStatus.absolute_mouse_X)+0);
-		  mouse_absolute_report[4] = *((uint8_t*)&(MouseStatus.absolute_mouse_Y)+1);
-		  mouse_absolute_report[5] = *((uint8_t*)&(MouseStatus.absolute_mouse_Y)+0);
+		  mouse_absolute_report[2] = *((uint8_t*)&(MouseStatus.absolute_mouse_x)+1);
+		  mouse_absolute_report[3] = *((uint8_t*)&(MouseStatus.absolute_mouse_x)+0);
+		  mouse_absolute_report[4] = *((uint8_t*)&(MouseStatus.absolute_mouse_y)+1);
+		  mouse_absolute_report[5] = *((uint8_t*)&(MouseStatus.absolute_mouse_y)+0);
 
 		  HAL_UART_Transmit(&huart2, mouse_absolute_report, 6, 20);
-
-
-
 	  break;
+
+
+	  case LOAD_MOUSE_POSITION:
+		   RxPrev = LOAD_MOUSE_POSITION;
+		   HAL_UART_Receive_IT(&huart2, RxBuffer, 5);
+		   return;
+	  break;
+
 
 	 //TODO
 
@@ -670,6 +726,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		  HAL_UART_Receive_IT(&huart2, RxBuffer, 2);
 		  return;
 	  break;
+
+
 
 	  case SET_Y0_AT_BOTTOM:
 		  //TODO

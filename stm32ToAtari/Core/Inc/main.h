@@ -77,12 +77,18 @@ MouseStateTypeDef;
 
 typedef struct _MouseStatus
 {
- int16_t absolute_mouse_X;
- int16_t absolute_mouse_Y;
+ uint16_t absolute_mouse_x;
+ uint16_t absolute_mouse_y;
  uint8_t absolute_mouse_btn;
 
  uint8_t mouse_threshold_x;
  uint8_t mouse_threshold_y;
+
+ uint8_t mouse_scale_x;
+ uint8_t mouse_scale_y;
+
+ uint16_t absolute_mouse_max_x;
+ uint16_t absolute_mouse_max_y;
 }
 MouseStatusTypeDef;
 
