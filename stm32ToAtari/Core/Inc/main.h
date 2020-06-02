@@ -66,6 +66,68 @@ void Error_Handler(void);
 #define LED2_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
+typedef enum
+{
+  MOUSE_RELATIVE = 0,
+  MOUSE_ABSOLUTE,
+  MOUSE_KEYCODE,
+  MOUSE_DISABLED
+}
+MouseStateTypeDef;
+
+typedef struct _MouseStatus
+{
+ int16_t absolute_mouse_X;
+ int16_t absolute_mouse_Y;
+ uint8_t absolute_mouse_btn;
+
+ uint8_t mouse_threshold_x;
+ uint8_t mouse_threshold_y;
+}
+MouseStatusTypeDef;
+
+
+
+typedef enum
+{
+  JOYSTICK_EVENT_REPORTING= 0,
+  JOYSTICK_INTERROGATION_MODE,
+  JOYSTICK_KEYCODE_MODE,
+  JOYSTICK_DISABLED
+}
+JoystickStateTypeDef;
+
+typedef enum
+{
+  RESET_1  = 						0x80,
+  RESET_2  = 						0x01,
+  SET_MOUSE_ACTION = 				0x07,
+  SET_RELATIVE_MOUSE_POSITIONING = 	0x08,
+  SET_ABSOLUTE_MOUSE_POSITIONING = 	0x09,
+  SET_MOUSE_KEYCODE = 				0x0A,
+  SET_MOUSE_THRESHOLD =				0x0B,
+  SET_MOUSE_SCALE = 				0x0C,
+  INTERROGATE_MOUSE_POSITION =		0x0D,
+  LOAD_MOUSE_POSITION =				0x0E,
+  SET_Y0_AT_BOTTOM = 				0x0F,
+  SET_Y0_AT_TOP =					0x10,
+  RESUME = 							0x11,
+  DISABLE_MOUSE = 					0x12,
+  PAUSE_OUTPUT = 					0x13,
+  SET_JOYSTICK_EVENT_REPORTING = 	0x14,
+  SET_JOYSTICK_INTERROGATION_MODE =	0x15,
+  JOYSTICK_INTERROGATE = 			0x16,
+  SET_JOYSTICK_MONITORING = 		0x17,
+  SET_FIRE_BUTTON_MONITORING =		0x18,
+  SET_JOYSTICK_KEYCODE_MODE = 		0x19,
+  DISABLE_JOYSTICKS = 				0x1A,
+  TIME_OF_DAY_CLOCK_SET = 			0x1B,
+  INTERROGATE_TIME_OF_DAT_CLOCK = 	0x1C,
+}
+CommandSetTypeDef;
+
+
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

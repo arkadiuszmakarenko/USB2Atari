@@ -37,14 +37,19 @@
  HID_USBDevicesTypeDef* usb;
  HID_KEYBD_Info_TypeDef *k_pinfo;
  HAL_StatusTypeDef status;
- uint8_t RxBuffer[2] = {0};
+ uint8_t RxBuffer[5] = {0};
+ uint8_t RxPrev = 0;
 
- //keyboard state
- uint8_t kb_reset = 0;
- uint8_t  joy_inter_mode = 0;
- uint8_t  joy_even_rpt = 1;
- uint8_t sendJoyData_flag = 0;
- uint8_t mouse_disable = 0;
+ //keyboard,joystick and mouse state
+ MouseStateTypeDef MouseState;
+ JoystickStateTypeDef JoystickState;
+
+
+ uint8_t mouse_YAtTop = 1;
+ uint8_t mouse_YAtBotton = 0;
+
+
+
 
  //joystick data
  uint8_t  joydata1 = 0;
@@ -53,8 +58,16 @@
  uint8_t joydata1_prev = 0;
  uint8_t joydata2_prev = 0;
 
+ //mouse data
+ MouseStatusTypeDef MouseStatus;
 
- ////
+
+
+
+
+
+
+
 
 
 
@@ -99,7 +112,7 @@ int __io_putchar(int ch)
 {
  uint8_t c[1];
  c[0] = ch & 0x00FF;
- HAL_UART_Transmit(&huart3, &*c, 1, 100);
+ HAL_UART_Transmit(&huart3, &*c, 1, 5);
  return ch;
 }
 
@@ -187,6 +200,9 @@ int main(void)
 
   /* USER CODE BEGIN Init */
 
+   //Set defaults
+   MouseStatus.mouse_threshold_x = 1;
+   MouseStatus.mouse_threshold_y = 1;
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -227,6 +243,13 @@ int main(void)
     usb = USBH_HID_GetUSBDev();
 
 
+    //Keyboard data
+    if(usb->keyboard!=NULL)
+    {
+   	 processKbd(usb->keyboard);
+    }
+
+
 
 
 
@@ -237,26 +260,38 @@ int main(void)
                     ; and x is the left button state
 X                   ; delta x as twos complement integer
 Y                   ; delta y as twos complement integer
-  */
 
 
- if (usb->mouse!=NULL && joy_inter_mode == 0 && mouse_disable != 1)
+*/
+ if (usb!=NULL&&usb->mouse!=NULL)
  {
-	 uint8_t mouse[3] = {0};
-	 mouse[0] = 0xF8;
-	 mouse[0]= mouse[0]|(usb->mouse->buttons[0]<<1);
-	 mouse[0]= mouse[0]|(usb->mouse->buttons[1]);
-	 mouse[1] = usb->mouse->x;
-	 mouse[2] = usb->mouse->y;
+	 if (MouseState==MOUSE_RELATIVE &&  JoystickState!= JOYSTICK_INTERROGATION_MODE)
+	 {
+		     uint8_t mouse[3] = {0};
+			 mouse[0] = 0xF8;
+		 	 mouse[0]= mouse[0]|(usb->mouse->buttons[0]<<1);
+		 	 mouse[0]= mouse[0]|(usb->mouse->buttons[1]);
+		 	 if (abs(usb->mouse->x)>=(MouseStatus.mouse_threshold_x)) mouse[1] = usb->mouse->x;
+		 	 if (abs(usb->mouse->y)>=(MouseStatus.mouse_threshold_y)) mouse[2] = usb->mouse->y;
 
-	 HAL_UART_Transmit(&huart2, mouse, 3, 100);
+		 	 HAL_UART_Transmit(&huart2, mouse, 3, 200);
+	 }
+
+   if (MouseState==MOUSE_ABSOLUTE)
+	 {
+		 //MouseButtons = 0;
+		 //MouseButtons = MouseButtons|(usb->mouse->buttons[0]<<1);
+		 //MouseButtons = MouseButtons||(usb->mouse->buttons[1]);
+		 MouseStatus.absolute_mouse_X = (MouseStatus.absolute_mouse_X) + (usb->mouse->x);
+		 MouseStatus.absolute_mouse_Y = (MouseStatus.absolute_mouse_Y) + (usb->mouse->y);
+
+	 }
+
  }
 
 
- if(usb->keyboard!=NULL)
- {
-	 processKbd(usb->keyboard);
- }
+
+
 
  //handle even joy
  if(usb!=NULL&&usb->gamepad1!=NULL)
@@ -268,7 +303,7 @@ Y                   ; delta y as twos complement integer
 	 joydata1 = *usb->gamepad1;
 
 	 //send data for event mode
-	if (joy_even_rpt==1)
+	if (JoystickState==JOYSTICK_EVENT_REPORTING)
 	 {
 		if(joydata1_prev!=joydata1)
 		{
@@ -280,7 +315,6 @@ Y                   ; delta y as twos complement integer
 	joydata1_prev = joydata1;
 
  }
-
 
 
     /* USER CODE BEGIN 3 */
@@ -462,10 +496,12 @@ static void MX_GPIO_Init(void)
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
+
+	printf("UART ERROR: %X\r\n",huart->ErrorCode);
   /* Prevent unused argument(s) compilation warning */
 	  if (huart->ErrorCode == HAL_UART_ERROR_ORE){
 
-		  printf("UART ORE! Scotty more power! should not happen. /r/n");
+
 
 
 	        // remove the error condition
@@ -494,92 +530,168 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 
-	if(RxBuffer[0]!=0x16)
-  printf("Command recieced %x \r\n",RxBuffer[0]);
   /* Prevent unused argument(s) compilation warning */
   UNUSED(huart);
-
-  /* NOTE : This function should not be modified, when the callback is needed,
-            the HAL_UART_RxCpltCallback can be implemented in the user file
-   */
-
-  if ((RxBuffer[0]==0x01)&&(kb_reset==1))
-  {
-  	 kb_reset = 0;
-  	 joy_inter_mode = 0;
-  	 joy_even_rpt = 1;
-  	 sendJoyData_flag = 0;
-  	 joydata1 = 0;
-  	 joydata2 = 0;
-  	 joydata1_prev = 0;
-  	 joydata2_prev = 0;
-  	 mouse_disable = 0;
-
-
-  	 HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_RESET);
-  	 HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
-  	 printf("Reboot completed\r\n");
-  }
-  else
-  {
-  	kb_reset = 0;
-  }
-
-  if (RxBuffer[0]==0x80)
-  {
-	  printf("Reboot started\r\n");
-  	  kb_reset =1;
-  }
-
-  //Set event reporting
-  if (RxBuffer[0]==0x14)
-  {
-  	joy_inter_mode = 0;
-  	joy_even_rpt = 1;
-  	printf("Event joystick reporting mode\r\n");
-
-  }
-
-
-  // set interrogation mode.
-  if (RxBuffer[0]==0x15)
-  {
-	  printf("Joystick interrogation mode \r\n");
-  	joy_inter_mode = 1;
-  	joy_even_rpt = 0;
-  	mouse_disable = 1;
-  }
-
-  if (RxBuffer[0]==0x11)
+  printf("%X \r\n",RxBuffer[0]);
+  //Followup requests
+  switch (RxPrev)
     {
-  	  printf("Resume \r\n");
-  	  mouse_disable = 0;
+  	  	  	  case RESET_1:
+  	  	  		  	  if (RxBuffer[0]==RESET_2)
+  	  	  		  	  {
+  	  	  		  	  	 //Mouse state
+  	  	  		  	  	 MouseState = MOUSE_RELATIVE;
+  	  	  		  	  	 JoystickState = JOYSTICK_EVENT_REPORTING;
+
+  	  	  		  	  	 joydata1 = 0;
+  	  	  		  	  	 joydata2 = 0;
+  	  	  		  	  	 joydata1_prev = 0;
+  	  	  		  	  	 joydata2_prev = 0;
+
+  	  	  		  	     HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+  	  	  		  	  	 return;
+  	  	  		  	  }
+  	  	  		  	  else
+  	  	  		  	  {
+  	  	  		  		 RxPrev = 0;
+  	  	  		  	  }
+  	  	  		  break;
+
+  	  	  	  case SET_MOUSE_THRESHOLD:
+  	  	  		  	  MouseStatus.mouse_threshold_x = RxBuffer[0];
+  	  	  		  	  MouseStatus.mouse_threshold_y = RxBuffer[1];
+  	  	  		  	  HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+  	  	  		  	  RxPrev = 0;
+  	  	  		  	  return;
+  	  	  	  break;
+
+  	  	  	  case SET_ABSOLUTE_MOUSE_POSITIONING:
+
+  	  	  		  	  	  	  MouseStatus.absolute_mouse_X= 0; //= RxBuffer[0];
+  	  	  		  	  	  	  MouseStatus.absolute_mouse_Y = 0; //= RxBuffer[1];
+
+  	  	  				      printf("%X %X %X %X %X \r\n", RxBuffer[0], RxBuffer[1], RxBuffer[2], RxBuffer[3],RxBuffer[4]);
+  	  	   	  	  		  	  HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+  	  	   	  	  		  	  RxPrev = 0;
+  	  	   	  	  		  	  return;
+  	  	   	  break;
+
+
+  	  	   	  default:
+
+  	  	  	  break;
     }
 
-  if (RxBuffer[0]==0x12)
-   {
- 	  printf("Mouse disable \r\n");
- 	  mouse_disable = 1;
-   }
+
+
+
+  //Initial requests
+  switch (RxBuffer[0])
+  {
+	  case RESET_1:
+		  RxPrev =  RESET_1;
+	  break;
+
+	  case SET_MOUSE_ACTION :
+		  //TODO
+	  break;
+
+	  case SET_RELATIVE_MOUSE_POSITIONING :
+		  	 MouseState = MOUSE_RELATIVE;
+	  break;
+
+	  case SET_ABSOLUTE_MOUSE_POSITIONING :
+		    MouseState = MOUSE_ABSOLUTE;
+		    RxPrev =  SET_ABSOLUTE_MOUSE_POSITIONING;
+		    HAL_UART_Receive_IT(&huart2, RxBuffer, 4);
+		    return;
+	  break;
+
+	  case SET_MOUSE_KEYCODE :
+	  	  		  //TODO
+	  break;
+	  case SET_MOUSE_SCALE :
+	  	  		  //TODO
+	  break;
+
+	  /*0x0D
+	  Returns:
+	          0xF7       ; absolute mouse position header
+	  BUTTONS
+	          0000dcba   ; where a is right button down since last interrogation
+	                     ; b is right button up since last
+	                     ; c is left button down since last
+	                     ; d is left button up since last
+	          XMSB       ; X coordinate
+	          XLSB
+	          YMSB       ; Y coordinate
+	          YLSB
+	   */
+	  case INTERROGATE_MOUSE_POSITION:
+		  ;
+		  uint8_t mouse_absolute_report[6] = {0};
+
+		  mouse_absolute_report[0] = 0xF7;
+		  mouse_absolute_report[1] = 0x00; //TODO buttons
+		  mouse_absolute_report[2] = *((uint8_t*)&(MouseStatus.absolute_mouse_X)+1);
+		  mouse_absolute_report[3] = *((uint8_t*)&(MouseStatus.absolute_mouse_X)+0);
+		  mouse_absolute_report[4] = *((uint8_t*)&(MouseStatus.absolute_mouse_Y)+1);
+		  mouse_absolute_report[5] = *((uint8_t*)&(MouseStatus.absolute_mouse_Y)+0);
+
+		  HAL_UART_Transmit(&huart2, mouse_absolute_report, 6, 20);
+
+
+
+	  break;
+
+	 //TODO
+
+	  case SET_JOYSTICK_EVENT_REPORTING:
+	  	  	JoystickState = JOYSTICK_EVENT_REPORTING;
+
+	  break;
+
+	  case SET_JOYSTICK_INTERROGATION_MODE:
+		    JoystickState = JOYSTICK_INTERROGATION_MODE;
+
+	  break;
+
+	  case JOYSTICK_INTERROGATE:
+		  ;
+		  uint8_t joy_package[3] = {0};
+		  joy_package[0]=0xFD;
+		  joy_package[1]= MapJoystick(joydata2);
+		  joy_package[2]= MapJoystick(joydata1);
+		  HAL_UART_Transmit(&huart2, joy_package, 3, 20);
+	  break;
+
+	  case SET_MOUSE_THRESHOLD:
+		  RxPrev = SET_MOUSE_THRESHOLD;
+		  HAL_UART_Receive_IT(&huart2, RxBuffer, 2);
+		  return;
+	  break;
+
+	  case SET_Y0_AT_BOTTOM:
+		  //TODO
+	  break;
+
+	  case SET_Y0_AT_TOP:
+		  //TODO
+	  break;
 
 
 
 
-  if (RxBuffer[0]==0x16)
-   {
-	  uint8_t joy_package[3] = {0};
-
-	   	joy_package[0]=0xFD;
-	   	joy_package[1]= MapJoystick(joydata2);
-	   	joy_package[2]= MapJoystick(joydata1);
-	   	HAL_UART_Transmit(&huart2, joy_package, 3, 100);
-   }
 
 
-  HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, GPIO_PIN_SET);
+
+	  default:
+	  break;
+  }
+
+
+
   HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
-  //
-
 
 }
 /* USER CODE END 4 */
