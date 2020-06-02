@@ -66,6 +66,16 @@ void Error_Handler(void);
 #define LED2_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
+
+typedef enum
+{
+	MOUSE_Y0_AT_BOTTOM = 0,
+	MOUSE_Y0_AT_TOP
+}
+Mouse_Y_Position_TypeDef;
+
+
+
 typedef enum
 {
   MOUSE_RELATIVE = 0,
@@ -80,6 +90,7 @@ typedef struct _MouseStatus
  uint16_t absolute_mouse_x;
  uint16_t absolute_mouse_y;
  uint8_t absolute_mouse_btn;
+ uint8_t absolute_mouse_previous_btn;
 
  uint8_t mouse_threshold_x;
  uint8_t mouse_threshold_y;
@@ -89,10 +100,26 @@ typedef struct _MouseStatus
 
  uint16_t absolute_mouse_max_x;
  uint16_t absolute_mouse_max_y;
+
+ uint8_t mouse_keycode_delta_x;
+ uint8_t mouse_keycode_delta_y;
+
+
+ Mouse_Y_Position_TypeDef mouse_y_position;
 }
 MouseStatusTypeDef;
 
 
+
+typedef struct _JoystickStatus
+{
+	 uint8_t  joystick_data1;
+	 uint8_t  joystick_data2;
+
+	 uint8_t joystick_previous_data1;
+	 uint8_t joystick_previous_data2;
+}
+JoystickStatusTypeDef;
 
 typedef enum
 {
@@ -110,7 +137,7 @@ typedef enum
   SET_MOUSE_ACTION = 				0x07,
   SET_RELATIVE_MOUSE_POSITIONING = 	0x08,
   SET_ABSOLUTE_MOUSE_POSITIONING = 	0x09,
-  SET_MOUSE_KEYCODE = 				0x0A,
+  SET_MOUSE_KEYCODE_MOSE = 			0x0A,
   SET_MOUSE_THRESHOLD =				0x0B,
   SET_MOUSE_SCALE = 				0x0C,
   INTERROGATE_MOUSE_POSITION =		0x0D,

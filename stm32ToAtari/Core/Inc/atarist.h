@@ -16,3 +16,5 @@ typedef struct {
 
 
 extern void initKeyboard(UART_HandleTypeDef *uart_handler);
+
+void processKbd(HID_KEYBD_Info_TypeDef *keyboard);

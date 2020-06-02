@@ -40,39 +40,21 @@
  uint8_t RxBuffer[5] = {0};
  uint8_t RxPrev = 0;
 
- //keyboard,joystick and mouse state
+
+ MouseStatusTypeDef MouseStatus;
  MouseStateTypeDef MouseState;
  JoystickStateTypeDef JoystickState;
+ JoystickStatusTypeDef JoystickStatus;
+
+// uint8_t mouse_YAtTop = 1;
+ //uint8_t mouse_YAtBotton = 0;
 
 
- uint8_t mouse_YAtTop = 1;
- uint8_t mouse_YAtBotton = 0;
 
 
 
-
- //joystick data
- uint8_t  joydata1 = 0;
- uint8_t  joydata2 = 0;
-
- uint8_t joydata1_prev = 0;
- uint8_t joydata2_prev = 0;
 
  //mouse data
- MouseStatusTypeDef MouseStatus;
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -113,6 +95,7 @@ int __io_putchar(int ch)
  uint8_t c[1];
  c[0] = ch & 0x00FF;
  HAL_UART_Transmit(&huart3, &*c, 1, 5);
+
  return ch;
 }
 
@@ -133,10 +116,10 @@ uint8_t MapJoystick(uint8_t joystick_data)
 	  uint8_t joymapped = 0x00;
 
 	   	//Map any button to
-		   	//BTN0 = (joydata1>>7&0x1);
-		   	//BTN1 =  (joydata1>>6&0x1);
-		    //BTN2 =  (joydata1>>5&0x1);
-		   	//BTN3 =  (joydata1>>4&0x1);
+		//BTN0 = (joydata1>>7&0x1);
+		//BTN1 =  (joydata1>>6&0x1);
+		//BTN2 =  (joydata1>>5&0x1);
+		//BTN3 =  (joydata1>>4&0x1);
 
 
 		   	//fire
@@ -180,6 +163,28 @@ uint8_t MapJoystick(uint8_t joystick_data)
 }
 
 
+void ResetAllStates()
+{
+	MouseState = MOUSE_RELATIVE;
+	MouseStatus.mouse_threshold_x = 1;
+	MouseStatus.mouse_threshold_y = 1;
+	MouseStatus.absolute_mouse_max_x = 0xFFFF;
+	MouseStatus.absolute_mouse_max_y = 0xFFFF;
+	MouseStatus.mouse_scale_x = 1;
+	MouseStatus.mouse_scale_y = 1;
+	MouseStatus.mouse_keycode_delta_x = 1;
+	MouseStatus.mouse_keycode_delta_y = 1;
+
+	MouseStatus.mouse_y_position = MOUSE_Y0_AT_TOP;
+	JoystickState = JOYSTICK_EVENT_REPORTING;
+	JoystickStatus.joystick_data1 = 0;
+	JoystickStatus.joystick_data2 = 0;
+	JoystickStatus.joystick_previous_data1 = 0;
+	JoystickStatus.joystick_previous_data2 = 0;
+
+}
+
+
 /* USER CODE END 0 */
 
 /**
@@ -189,7 +194,7 @@ uint8_t MapJoystick(uint8_t joystick_data)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+	ResetAllStates();
 
   /* USER CODE END 1 */
 
@@ -201,11 +206,7 @@ int main(void)
   /* USER CODE BEGIN Init */
 
    //Set defaults
-   MouseStatus.mouse_threshold_x = 1;
-   MouseStatus.mouse_threshold_y = 1;
 
-   MouseStatus.absolute_mouse_max_x = 0xFFFF;
-   MouseStatus.absolute_mouse_max_y = 0xFFFF;
 
   /* USER CODE END Init */
 
@@ -232,7 +233,7 @@ int main(void)
   HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
   printf("!!STM32ToAtari started!! \r\n");
 
-
+  uint8_t lastGUI = 0x00;
 
 
 
@@ -244,13 +245,41 @@ int main(void)
   {
 
     MX_USB_HOST_Process();
-    usb = USBH_HID_GetUSBDev();
+    usb = (HID_USBDevicesTypeDef *) USBH_HID_GetUSBDev();
 
 
     //Keyboard data
     if(usb->keyboard!=NULL)
     {
    	 processKbd(usb->keyboard);
+
+   	 if ((lastGUI!=usb->keyboard->lgui)&& usb->keyboard->lgui == 1)
+   	 {
+   		printf("-----------MOUSE STATE--------------\r\n");
+   		printf("Mouse State: %d \r\n",MouseState);
+   		printf("----------MOUSE---------------\r\n");
+   		printf("absolute_mouse_x %d \r\n",MouseStatus.absolute_mouse_x);
+   		printf("absolute_mouse_y %d \r\n",MouseStatus.absolute_mouse_y);
+   		printf("absolute_mouse_btn %d \r\n",MouseStatus.absolute_mouse_btn);
+   		printf("mouse_threshold_x %d \r\n",MouseStatus.mouse_threshold_x);
+   		printf("mouse_threshold_y %d \r\n",MouseStatus.mouse_threshold_y);
+   		printf("mouse_scale_x %d \r\n",MouseStatus.mouse_scale_x);
+   		printf("absolute_mouse_max_x %d \r\n",MouseStatus.absolute_mouse_max_x);
+   		printf("absolute_mouse_max_y %d \r\n",MouseStatus.absolute_mouse_max_y);
+
+   		printf("-----------JOYSTICK STATE--------------\r\n");
+   		printf("Joystick State: %d \r\n",JoystickState);
+   		printf("-----------JOYSTICK STATUS--------------\r\n");
+   		printf("joystick_data1 %d \r\n",JoystickStatus.joystick_data1);
+   		printf("joystick_data2 %d \r\n",JoystickStatus.joystick_data2);
+   		printf("joystick_previous_data1 %d \r\n",JoystickStatus.joystick_previous_data1);
+   		printf("joystick_previous_data2 %d \r\n",JoystickStatus.joystick_previous_data2);
+
+
+
+   	 }
+   	 lastGUI = usb->keyboard->lgui;
+
     }
 
 
@@ -287,7 +316,7 @@ Y                   ; delta y as twos complement integer
 		 //MouseButtons = MouseButtons|(usb->mouse->buttons[0]<<1);
 		 //MouseButtons = MouseButtons||(usb->mouse->buttons[1]);
 
-	   int new_x_coordinate =  (MouseStatus.absolute_mouse_x) + (usb->mouse->x);
+	   int new_x_coordinate =  (MouseStatus.absolute_mouse_x) + ((usb->mouse->x) / MouseStatus.mouse_scale_x);
 	   if (new_x_coordinate < 0)
 		   {
 		   new_x_coordinate = 0 ;
@@ -298,7 +327,7 @@ Y                   ; delta y as twos complement integer
 	   	   	   }
 
 
-	   int new_y_coordinate =  (MouseStatus.absolute_mouse_y) + (usb->mouse->y);
+	   int new_y_coordinate =  (MouseStatus.absolute_mouse_y) + ((usb->mouse->y) / MouseStatus.mouse_scale_y);
 	   if (new_y_coordinate < 0)
 		   {
 		   	   new_y_coordinate = 0;
@@ -316,6 +345,45 @@ Y                   ; delta y as twos complement integer
 
 	 }
 
+   if (MouseState==MOUSE_KEYCODE)
+  	 {
+	   	   HID_KEYBD_Info_TypeDef mouse_keycode_keyboard = {0};
+
+	   	   if(abs(usb->mouse->x) > MouseStatus.mouse_keycode_delta_x)
+	   	   {
+	   		   if (usb->mouse->x > 0)
+	   		   {
+	   			   mouse_keycode_keyboard.keys[0] = KEY_RIGHTARROW;
+	   		   }
+	   		   else
+	   		   {
+	   			   mouse_keycode_keyboard.keys[0] = KEY_LEFTARROW;
+	   		   }
+	   	   }
+
+	   	   if(abs(usb->mouse->y) > MouseStatus.mouse_keycode_delta_y)
+	   	   {
+	   		   if (usb->mouse->y > 0)
+	   		   {
+	   			 mouse_keycode_keyboard.keys[1] = KEY_UPARROW;
+	   		   }
+	   		   else
+	   		   {
+	   			 mouse_keycode_keyboard.keys[1] = KEY_DOWNARROW;
+	   		   }
+
+	   		   //TODO mouse clicks
+	   		   //mouse_keycode_keyboard.keys[2] as LEFT=0x74
+	   		   //mouse_keycode_keyboard.keys[3] as RIGHT=0x75.
+
+
+	   	   }
+	   	   processKbd(&mouse_keycode_keyboard);
+	   	   mouse_keycode_keyboard.keys[0] = 0x00;
+	   	   mouse_keycode_keyboard.keys[1] = 0x00;
+	   	   processKbd(&mouse_keycode_keyboard);
+  	 }
+
  }
 
 
@@ -329,19 +397,19 @@ Y                   ; delta y as twos complement integer
 	 uint8_t joy1_package_event[2] = {0};
 
 	 //set data for interrogation mode
-	 joydata1 = *usb->gamepad1;
+	 JoystickStatus.joystick_data1 = *usb->gamepad1;
 
 	 //send data for event mode
 	if (JoystickState==JOYSTICK_EVENT_REPORTING)
 	 {
-		if(joydata1_prev!=joydata1)
+		if(JoystickStatus.joystick_previous_data1 != JoystickStatus.joystick_data1)
 		{
 			joy1_package_event[0] = 0xFE;
-			joy1_package_event[1] = MapJoystick(joydata1);
+			joy1_package_event[1] = MapJoystick(JoystickStatus.joystick_data1);
 			HAL_UART_Transmit(&huart2, joy1_package_event, 2, 10);
 		}
 	 }
-	joydata1_prev = joydata1;
+	JoystickStatus.joystick_previous_data1 = JoystickStatus.joystick_data1;
 
  }
 
@@ -526,7 +594,7 @@ static void MX_GPIO_Init(void)
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
 
-	printf("UART ERROR: %X\r\n",huart->ErrorCode);
+	printf("UART ERROR: %d  \r\n",huart->ErrorCode);
   /* Prevent unused argument(s) compilation warning */
 	  if (huart->ErrorCode == HAL_UART_ERROR_ORE){
 
@@ -561,22 +629,16 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
   /* Prevent unused argument(s) compilation warning */
   UNUSED(huart);
-  printf("%X \r\n",RxBuffer[0]);
+
+	 // printf("%X \r\n",RxBuffer[0]);
+
   //Followup requests
   switch (RxPrev)
     {
   	  	  	  case RESET_1:
   	  	  		  	  if (RxBuffer[0]==RESET_2)
   	  	  		  	  {
-  	  	  		  	  	 //Mouse state
-  	  	  		  	  	 MouseState = MOUSE_RELATIVE;
-  	  	  		  	  	 JoystickState = JOYSTICK_EVENT_REPORTING;
-
-  	  	  		  	  	 joydata1 = 0;
-  	  	  		  	  	 joydata2 = 0;
-  	  	  		  	  	 joydata1_prev = 0;
-  	  	  		  	  	 joydata2_prev = 0;
-
+  	  	  		  	  	 ResetAllStates();
   	  	  		  	     HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
   	  	  		  	  	 return;
   	  	  		  	  }
@@ -641,10 +703,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		  RxPrev =  RESET_1;
 	  break;
 
-	  case SET_MOUSE_ACTION :
-		  //TODO
-	  break;
-
 	  case SET_RELATIVE_MOUSE_POSITIONING :
 		  	 MouseState = MOUSE_RELATIVE;
 	  break;
@@ -656,9 +714,16 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		    return;
 	  break;
 
-	  case SET_MOUSE_KEYCODE :
-	  	  		  //TODO
+	  case SET_MOUSE_KEYCODE_MOSE:
+		  MouseState = MOUSE_KEYCODE;
+		  RxPrev = SET_MOUSE_KEYCODE_MOSE;
+		  HAL_UART_Receive_IT(&huart2, RxBuffer, 4);
+		  return;
+
+
+
 	  break;
+
 	  case SET_MOUSE_SCALE:
 	  		  RxPrev = SET_MOUSE_SCALE;
 	  		  HAL_UART_Receive_IT(&huart2, RxBuffer, 2);
@@ -683,13 +748,19 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		  uint8_t mouse_absolute_report[6] = {0};
 
 		  mouse_absolute_report[0] = 0xF7;
+
+
+
+
+
 		  mouse_absolute_report[1] = 0x00; //TODO buttons
 		  mouse_absolute_report[2] = *((uint8_t*)&(MouseStatus.absolute_mouse_x)+1);
 		  mouse_absolute_report[3] = *((uint8_t*)&(MouseStatus.absolute_mouse_x)+0);
 		  mouse_absolute_report[4] = *((uint8_t*)&(MouseStatus.absolute_mouse_y)+1);
 		  mouse_absolute_report[5] = *((uint8_t*)&(MouseStatus.absolute_mouse_y)+0);
-
+		  MouseStatus.absolute_mouse_previous_btn = MouseStatus.absolute_mouse_btn;
 		  HAL_UART_Transmit(&huart2, mouse_absolute_report, 6, 20);
+
 	  break;
 
 
@@ -699,8 +770,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		   return;
 	  break;
 
-
-	 //TODO
 
 	  case SET_JOYSTICK_EVENT_REPORTING:
 	  	  	JoystickState = JOYSTICK_EVENT_REPORTING;
@@ -716,8 +785,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		  ;
 		  uint8_t joy_package[3] = {0};
 		  joy_package[0]=0xFD;
-		  joy_package[1]= MapJoystick(joydata2);
-		  joy_package[2]= MapJoystick(joydata1);
+		  joy_package[1]= MapJoystick(JoystickStatus.joystick_data2);
+		  joy_package[2]= MapJoystick(JoystickStatus.joystick_data1);
 		  HAL_UART_Transmit(&huart2, joy_package, 3, 20);
 	  break;
 
@@ -726,21 +795,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		  HAL_UART_Receive_IT(&huart2, RxBuffer, 2);
 		  return;
 	  break;
-
-
-
-	  case SET_Y0_AT_BOTTOM:
-		  //TODO
-	  break;
-
-	  case SET_Y0_AT_TOP:
-		  //TODO
-	  break;
-
-
-
-
-
 
 
 	  default:

@@ -85,6 +85,8 @@ void MX_USB_HOST_Init(void);
 
 void MX_USB_HOST_Process(void);
 
+uint8_t *USBH_HID_GetUSBDev();
+
 /**
   * @}
   */
