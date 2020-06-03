@@ -67,15 +67,7 @@ void Error_Handler(void);
 /* USER CODE BEGIN Private defines */
 
 
-typedef enum
-{
-	MOUSE_BUTTON_ACTION_DEFAULT = 0b00000000,
-	MOUSE_BUTTON_ACTION_KEYCODE = 0b0000100,
-	MOUSE_BUTTON_ACTION_PRESS = 0b00000010,
-	MOUSE_BUTTON_ACTION_RELEASE = 0b00000001,
-	MOUSE_BUTTON_ACTION_PRESS_RELEASE = 0b00000011
-}
-Mouse_Button_Action_TypeDef;
+
 
 
 typedef enum
@@ -116,7 +108,7 @@ typedef struct _MouseStatus
  uint8_t mouse_keycode_delta_y;
 
  Mouse_Y_Position_TypeDef mouse_y_position;
- Mouse_Button_Action_TypeDef mouse_button_action;
+ uint8_t mouse_button_action;
  uint8_t mouse_button_action_previous_btn[3];
 }
 MouseStatusTypeDef;

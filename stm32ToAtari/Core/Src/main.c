@@ -34,17 +34,19 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
- HID_USBDevicesTypeDef* usb;
- HID_KEYBD_Info_TypeDef *k_pinfo;
- HAL_StatusTypeDef status;
- uint8_t RxBuffer[5] = {0};
- uint8_t RxPrev = 0;
-
-
  MouseStatusTypeDef MouseStatus;
  MouseStateTypeDef MouseState;
  JoystickStateTypeDef JoystickState;
  JoystickStatusTypeDef JoystickStatus;
+
+ HID_USBDevicesTypeDef* usb;
+ HID_KEYBD_Info_TypeDef *k_pinfo;
+ HAL_StatusTypeDef status;
+ uint8_t RxBuffer[50] = {0};
+ uint8_t RxPrev = 0;
+
+
+
 
 // uint8_t mouse_YAtTop = 1;
  //uint8_t mouse_YAtBotton = 0;
@@ -184,6 +186,20 @@ void ResetAllStates()
 
 }
 
+/*0x0D
+Returns:
+        0xF7       ; absolute mouse position header
+BUTTONS
+        0000dcba   ; where a is right button down since last interrogation
+                   ; b is right button up since last
+                   ; c is left button down since last
+                   ; d is left button up since last
+        XMSB       ; X coordinate
+        XLSB
+        YMSB       ; Y coordinate
+        YLSB
+ */
+
 void SendAbsoluteMouseReport(void)
 {
 	  uint8_t mouse_absolute_report[6] = {0};
@@ -216,8 +232,10 @@ void SendAbsoluteMouseReport(void)
 		mouse_absolute_report[4] = *((uint8_t*)&(MouseStatus.absolute_mouse_y)+1);
 		mouse_absolute_report[5] = *((uint8_t*)&(MouseStatus.absolute_mouse_y)+0);
 
-
-		HAL_UART_Transmit(&huart2, mouse_absolute_report, 6, 20);
+		if(MouseState == MOUSE_ABSOLUTE)
+		{
+			HAL_UART_Transmit(&huart2, mouse_absolute_report, 6, 20);
+		}
 
 }
 
@@ -280,20 +298,24 @@ void HandleMouse(void)
 
 	   //Action as per Mouse Button action
 
-	   if  (MouseStatus.mouse_button_action == MOUSE_BUTTON_ACTION_PRESS || MouseStatus.mouse_button_action == MOUSE_BUTTON_ACTION_PRESS_RELEASE )
+	   if  (MouseStatus.mouse_button_action == 0x01 || MouseStatus.mouse_button_action == 0x03 )
 	   {
 		   if ( (MouseStatus.mouse_button_action_previous_btn[0] != usb->mouse->buttons[0]) || (MouseStatus.mouse_button_action_previous_btn[1] != usb->mouse->buttons[1]) )
 		   {
 			   SendAbsoluteMouseReport();
+			   MouseStatus.mouse_button_action_previous_btn[0] = usb->mouse->buttons[0];
+			   MouseStatus.mouse_button_action_previous_btn[1] = usb->mouse->buttons[1];
 		   }
 
 	   }
 
-	   if  (MouseStatus.mouse_button_action == MOUSE_BUTTON_ACTION_RELEASE || MouseStatus.mouse_button_action == MOUSE_BUTTON_ACTION_PRESS_RELEASE )
+	   if  (MouseStatus.mouse_button_action == 0x02 || MouseStatus.mouse_button_action == 0x03)
 	   {
 		   if ( (MouseStatus.mouse_button_action_previous_btn[0] != usb->mouse->buttons[0]) || (MouseStatus.mouse_button_action_previous_btn[1] != usb->mouse->buttons[1]) )
 		  	{
 		  		SendAbsoluteMouseReport();
+		  		MouseStatus.mouse_button_action_previous_btn[0] = usb->mouse->buttons[0];
+		  		MouseStatus.mouse_button_action_previous_btn[1] = usb->mouse->buttons[1];
 		  	}
 
 	   }
@@ -459,7 +481,10 @@ int main(void)
     //Keyboard data
     if(usb->keyboard!=NULL)
     {
-   	 processKbd(usb->keyboard);
+
+
+   	 	 processKbd(usb->keyboard);
+
 
    	 if ((lastGUI!=usb->keyboard->lgui)&& usb->keyboard->lgui == 1)
    	 {
@@ -467,7 +492,6 @@ int main(void)
 
    	 }
    	 lastGUI = usb->keyboard->lgui;
-
     }
 
 
@@ -733,12 +757,17 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   /* Prevent unused argument(s) compilation warning */
   UNUSED(huart);
 
-	 //printf("%X \r\n",RxBuffer[0]);
+  	  if (RxBuffer[0]!=0x0D)
+  	  {
+  		  printf("%X \r\n",RxBuffer[0]);
+  	  }
+
 
   //Followup requests
   switch (RxPrev)
     {
   	  	  	  case RESET_1:
+  	  	  		  RxPrev = 0;
   	  	  		  	  if (RxBuffer[0]==RESET_2)
   	  	  		  	  {
   	  	  		  	  	 ResetAllStates();
@@ -747,7 +776,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   	  	  		  	  }
   	  	  		  	  else
   	  	  		  	  {
-  	  	  		  		 RxPrev = 0;
+
   	  	  		  		 HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
   	  	  		  	  	 return;
   	  	  		  	  }
@@ -756,53 +785,55 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 
   	    	  case SET_ABSOLUTE_MOUSE_POSITIONING:
-
+  	    		  RxPrev = 0;
 	  	  		  MouseStatus.absolute_mouse_max_x = (RxBuffer[0]<<8u)|RxBuffer[1];
 	  	  		  MouseStatus.absolute_mouse_max_y = (RxBuffer[2]<<8u)|RxBuffer[3];
 
   	    	  	  HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
-  	    	  	  RxPrev = 0;
+
   	    	  	  return;
   	    	  break;
 
   	    	  case SET_MOUSE_BUTTON_ACTION:
-  	    	  	  	  	  	  MouseStatus.mouse_button_action = RxBuffer[0];
-  	    	  	  	  	  	  HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
-  	    	  	  	  	  	  return;
+  	    		  RxPrev = 0;
+  	    	  	 // MouseStatus.mouse_button_action = RxBuffer[0];
+  	    	  	  HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+  	    	  	  return;
   	    	  break;
 
   	  	  	  case SET_MOUSE_THRESHOLD:
+  	  	  		  	  RxPrev = 0;
   	  	  		  	  MouseStatus.mouse_threshold_x = RxBuffer[0];
   	  	  		  	  MouseStatus.mouse_threshold_y = RxBuffer[1];
 
-  	  	  		  	  RxPrev = 0;
   	  	  		  	  HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
 
   	  	  		  	  return;
   	  	  	  break;
 
   	  	  	  case SET_MOUSE_SCALE:
+  	  	  		  	RxPrev = 0;
   	  				MouseStatus.mouse_scale_x = RxBuffer[0];
   	  				MouseStatus.mouse_scale_y = RxBuffer[1];
 
 				  	HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
-				  	RxPrev = 0;
+
 				    return;
 			  break;
 
   	  	  	  case LOAD_MOUSE_POSITION:
+  	  	  		  	RxPrev = 0;
   	  	  		  	MouseStatus.absolute_mouse_x = (RxBuffer[1]<<8u)|RxBuffer[2];
   	  	  		  	MouseStatus.absolute_mouse_y = (RxBuffer[3]<<8u)|RxBuffer[4];
 
   	  	  			HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
-  	  	  		  	RxPrev = 0;
+
   	  	  			return;
   	  	  	  break;
 
 
-
   	  	   	  default:
-
+  	  	   		  RxPrev = 0;
   	  	  	  break;
     }
 
@@ -818,6 +849,14 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		  return;
 	  break;
 
+	  case SET_RELATIVE_MOUSE_POSITIONING :
+	 		  	 MouseState = MOUSE_RELATIVE;
+	 		  	 HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+	 		     return;
+	 	  break;
+
+
+
 	  case SET_MOUSE_BUTTON_ACTION:
 		  RxPrev = SET_MOUSE_BUTTON_ACTION;
 		  HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
@@ -827,18 +866,16 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 
 
-	  case SET_RELATIVE_MOUSE_POSITIONING :
-		  	 MouseState = MOUSE_RELATIVE;
-		  	 HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
-		     return;
-	  break;
+
 
 	  case SET_ABSOLUTE_MOUSE_POSITIONING :
 		    MouseState = MOUSE_ABSOLUTE;
 		    RxPrev =  SET_ABSOLUTE_MOUSE_POSITIONING;
 		    HAL_UART_Receive_IT(&huart2, RxBuffer, 4);
+
 		    return;
 	  break;
+
 
 	  case SET_MOUSE_KEYCODE_MOSE:
 		  MouseState = MOUSE_KEYCODE;
@@ -856,19 +893,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	  		  return;
 	   break;
 
-	  /*0x0D
-	  Returns:
-	          0xF7       ; absolute mouse position header
-	  BUTTONS
-	          0000dcba   ; where a is right button down since last interrogation
-	                     ; b is right button up since last
-	                     ; c is left button down since last
-	                     ; d is left button up since last
-	          XMSB       ; X coordinate
-	          XLSB
-	          YMSB       ; Y coordinate
-	          YLSB
-	   */
+
 	  case INTERROGATE_MOUSE_POSITION:
 		  SendAbsoluteMouseReport();
 		  HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
@@ -916,12 +941,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	  break;
 
 
-	  default:
-		  HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
-		  return;
-	  break;
   }
 
+	 HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
 }
 /* USER CODE END 4 */
 

@@ -375,7 +375,9 @@ void send_keysToAtari(uint8_t key, uint8_t isPress)
 		array[0]= key;
 	}
 
+	__disable_irq();
 	HAL_UART_Transmit(uart, array, 1, 100);
+	__enable_irq();
 }
 
 
