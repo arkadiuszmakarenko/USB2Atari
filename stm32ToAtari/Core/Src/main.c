@@ -234,12 +234,12 @@ void SendAbsoluteMouseReport(void)
 void HandleMouse(void)
 {
 	 //SET Y=0 AT BOTTOM assume it means inverting Y delta (?)
-	/*
+
 	if (MouseStatus.mouse_y_position == MOUSE_Y0_AT_BOTTOM )
 	 {
 		 usb->mouse->x = (usb->mouse->x) * -1;
 	 }
-	 */
+
 
 
 	 if (MouseState==MOUSE_RELATIVE &&  JoystickState!= JOYSTICK_INTERROGATION_MODE)
@@ -309,7 +309,7 @@ void HandleMouse(void)
 
 
 	 }
-/*
+
   if (MouseState==MOUSE_KEYCODE)
  	 {
 	   	   HID_KEYBD_Info_TypeDef mouse_keycode_keyboard = {0};
@@ -357,7 +357,7 @@ void HandleMouse(void)
 	   	   processKbd(&mouse_keycode_keyboard);
  	 }
 
-*/
+
 
 }
 
@@ -742,7 +742,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   /* Prevent unused argument(s) compilation warning */
   UNUSED(huart);
 
-	 printf("%X \r\n",RxBuffer[0]);
+	 //printf("%X \r\n",RxBuffer[0]);
 
   //Followup requests
   switch (RxPrev)
@@ -757,6 +757,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   	  	  		  	  else
   	  	  		  	  {
   	  	  		  		 RxPrev = 0;
+  	  	  		  		 HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+  	  	  		  	  	 return;
   	  	  		  	  }
   	  	  		  break;
 
@@ -821,6 +823,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   {
 	  case RESET_1:
 		  RxPrev =  RESET_1;
+		  HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+		  return;
 	  break;
 
 	  case SET_MOUSE_BUTTON_ACTION:
@@ -834,6 +838,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 	  case SET_RELATIVE_MOUSE_POSITIONING :
 		  	 MouseState = MOUSE_RELATIVE;
+		  	 HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+		     return;
 	  break;
 
 	  case SET_ABSOLUTE_MOUSE_POSITIONING :
@@ -874,6 +880,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	   */
 	  case INTERROGATE_MOUSE_POSITION:
 		  SendAbsoluteMouseReport();
+		  HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+		  return;
 	  break;
 
 
@@ -886,11 +894,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 	  case SET_JOYSTICK_EVENT_REPORTING:
 	  	  	JoystickState = JOYSTICK_EVENT_REPORTING;
+	  	  	HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+	  	    return;
 
 	  break;
 
 	  case SET_JOYSTICK_INTERROGATION_MODE:
 		    JoystickState = JOYSTICK_INTERROGATION_MODE;
+		    HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+		    return;
 
 	  break;
 
@@ -901,6 +913,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		  joy_package[1]= MapJoystick(JoystickStatus.joystick_data2);
 		  joy_package[2]= MapJoystick(JoystickStatus.joystick_data1);
 		  HAL_UART_Transmit(&huart2, joy_package, 3, 20);
+
+		  HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+		  return;
 	  break;
 
 	  case SET_MOUSE_THRESHOLD:
@@ -911,12 +926,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 
 	  default:
+		  HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+		  return;
 	  break;
   }
-
-
-
-  HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
 
 }
 /* USER CODE END 4 */
