@@ -224,6 +224,8 @@
 #define KEY_RIGHTSHIFT                         0xE5
 #define KEY_RIGHTALT                           0xE6
 #define KEY_RIGHT_GUI                          0xE7
+#define MOUSE_LEFT                             0xF0
+#define MOUSE_RIGHT	                           0xF1
 
 
 #define KEYCODE_TAB_SIZE      0x73 /* da 0x00 a 0x72 */
@@ -323,7 +325,9 @@ static const uint8_t mapUSBtoAtariCodes[KEYCODE_TAB_SIZE][2] =
 		{KEY_KEYPAD_3_PAGEDN,				0x6F},
 		{KEY_KEYPAD_0_INSERT,				0x70},
 		{KEY_KEYPAD_DECIMAL,				0x71},
-		{KEY_KEYPAD_ENTER,					0x72}
+		{KEY_KEYPAD_ENTER,					0x72},
+		{MOUSE_LEFT,						0x74},
+		{MOUSE_RIGHT,						0x75},
 };
 
 UART_HandleTypeDef *uart;

@@ -69,6 +69,17 @@ void Error_Handler(void);
 
 typedef enum
 {
+	MOUSE_BUTTON_ACTION_DEFAULT = 0b00000000,
+	MOUSE_BUTTON_ACTION_KEYCODE = 0b0000100,
+	MOUSE_BUTTON_ACTION_PRESS = 0b00000010,
+	MOUSE_BUTTON_ACTION_RELEASE = 0b00000001,
+	MOUSE_BUTTON_ACTION_PRESS_RELEASE = 0b00000011
+}
+Mouse_Button_Action_TypeDef;
+
+
+typedef enum
+{
 	MOUSE_Y0_AT_BOTTOM = 0,
 	MOUSE_Y0_AT_TOP
 }
@@ -89,8 +100,8 @@ typedef struct _MouseStatus
 {
  uint16_t absolute_mouse_x;
  uint16_t absolute_mouse_y;
- uint8_t absolute_mouse_btn;
- uint8_t absolute_mouse_previous_btn;
+ uint8_t absolute_mouse_btn[3];
+ uint8_t absolute_mouse_previous_btn[3];
 
  uint8_t mouse_threshold_x;
  uint8_t mouse_threshold_y;
@@ -104,8 +115,9 @@ typedef struct _MouseStatus
  uint8_t mouse_keycode_delta_x;
  uint8_t mouse_keycode_delta_y;
 
-
  Mouse_Y_Position_TypeDef mouse_y_position;
+ Mouse_Button_Action_TypeDef mouse_button_action;
+ uint8_t mouse_button_action_previous_btn[3];
 }
 MouseStatusTypeDef;
 
@@ -134,7 +146,7 @@ typedef enum
 {
   RESET_1  = 						0x80,
   RESET_2  = 						0x01,
-  SET_MOUSE_ACTION = 				0x07,
+  SET_MOUSE_BUTTON_ACTION = 		0x07,
   SET_RELATIVE_MOUSE_POSITIONING = 	0x08,
   SET_ABSOLUTE_MOUSE_POSITIONING = 	0x09,
   SET_MOUSE_KEYCODE_MOSE = 			0x0A,
