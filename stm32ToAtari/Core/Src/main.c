@@ -191,8 +191,7 @@ void SendAbsoluteMouseReport(void)
 		mouse_absolute_report[0] = 0xF7;
 		mouse_absolute_report[1] = 0x00;
 
-		if(MouseStatus.mouse_button_action_previous_btn[0] != MouseStatus.absolute_mouse_btn[0])
-		{
+
 			if (MouseStatus.absolute_mouse_btn[0]==1)
 			{
 				mouse_absolute_report[1] = mouse_absolute_report[1]|0x04;
@@ -202,12 +201,6 @@ void SendAbsoluteMouseReport(void)
 				mouse_absolute_report[1] = mouse_absolute_report[1]|0x08;
 			}
 
-
-
-		}
-
-		if(MouseStatus.mouse_button_action_previous_btn[1] != MouseStatus.absolute_mouse_btn[1])
-		{
 			if (MouseStatus.absolute_mouse_btn[1]==1)
 			{
 				mouse_absolute_report[1] = mouse_absolute_report[1]|0x01;
@@ -216,16 +209,14 @@ void SendAbsoluteMouseReport(void)
 			{
 				mouse_absolute_report[1] = mouse_absolute_report[1]|0x02;
 			}
-		}
-
 
 
 		mouse_absolute_report[2] = *((uint8_t*)&(MouseStatus.absolute_mouse_x)+1);
 		mouse_absolute_report[3] = *((uint8_t*)&(MouseStatus.absolute_mouse_x)+0);
 		mouse_absolute_report[4] = *((uint8_t*)&(MouseStatus.absolute_mouse_y)+1);
 		mouse_absolute_report[5] = *((uint8_t*)&(MouseStatus.absolute_mouse_y)+0);
-		MouseStatus.absolute_mouse_previous_btn[0] = MouseStatus.absolute_mouse_btn[0];
-		MouseStatus.absolute_mouse_previous_btn[1] = MouseStatus.absolute_mouse_btn[1];
+
+
 		HAL_UART_Transmit(&huart2, mouse_absolute_report, 6, 20);
 
 }
