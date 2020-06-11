@@ -45,11 +45,7 @@
  uint8_t RxBuffer[50] = {0};
  uint8_t RxPrev = 0;
 
-
-
-
-// uint8_t mouse_YAtTop = 1;
- //uint8_t mouse_YAtBotton = 0;
+ uint8_t dat_clock[7] = {0};
 
 
 
@@ -240,139 +236,6 @@ void SendAbsoluteMouseReport(void)
 }
 
 
-void HandleMouse(void)
-{
-	 //SET Y=0 AT BOTTOM assume it means inverting Y delta (?)
-
-	if (MouseStatus.mouse_y_position == MOUSE_Y0_AT_BOTTOM )
-	 {
-		 usb->mouse->x = (usb->mouse->x) * -1;
-	 }
-
-
-
-	 if (MouseState==MOUSE_RELATIVE &&  JoystickState!= JOYSTICK_INTERROGATION_MODE)
-	 {
-		     uint8_t mouse[3] = {0};
-			 mouse[0] = 0xF8;
-		 	 mouse[0]= mouse[0]|(usb->mouse->buttons[0]<<1);
-		 	 mouse[0]= mouse[0]|(usb->mouse->buttons[1]);
-		 	 if (abs(usb->mouse->x)>=(MouseStatus.mouse_threshold_x)) mouse[1] = usb->mouse->x;
-		 	 if (abs(usb->mouse->y)>=(MouseStatus.mouse_threshold_y)) mouse[2] = usb->mouse->y;
-
-		 	 HAL_UART_Transmit(&huart2, mouse, 3, 10);
-		 	 return;
-	 }
-
-
-  if (MouseState==MOUSE_ABSOLUTE)
-	 {
-
-	   MouseStatus.absolute_mouse_btn[0] = usb->mouse->buttons[0];
-	   MouseStatus.absolute_mouse_btn[1] = usb->mouse->buttons[1];
-
-
-	   int new_x_coordinate =  (MouseStatus.absolute_mouse_x) + ((usb->mouse->x) / MouseStatus.mouse_scale_x);
-	   if (new_x_coordinate < 0)
-		   {
-		   new_x_coordinate = 0 ;
-		   }
-	   	   	   else if (new_x_coordinate > MouseStatus.absolute_mouse_max_x)
-	   	   	   {
-	   	   		   new_x_coordinate = MouseStatus.absolute_mouse_max_x;
-	   	   	   }
-
-
-	   int new_y_coordinate =  (MouseStatus.absolute_mouse_y) + ((usb->mouse->y) / MouseStatus.mouse_scale_y);
-	   if (new_y_coordinate < 0)
-		   {
-		   	   new_y_coordinate = 0;
-		   }
-	   	   	   else if (new_y_coordinate > MouseStatus.absolute_mouse_max_y )
-	   	   	   {
-	   	   		   	   new_y_coordinate = MouseStatus.absolute_mouse_max_y;
-	   	   	   }
-
-	   MouseStatus.absolute_mouse_x = (uint16_t)new_x_coordinate;
-	   MouseStatus.absolute_mouse_y = (uint16_t)new_y_coordinate;
-
-	   //Action as per Mouse Button action
-
-	   if  (MouseStatus.mouse_button_action == 0x01 || MouseStatus.mouse_button_action == 0x03 )
-	   {
-		   if ( (MouseStatus.mouse_button_action_previous_btn[0] != usb->mouse->buttons[0]) || (MouseStatus.mouse_button_action_previous_btn[1] != usb->mouse->buttons[1]) )
-		   {
-			   SendAbsoluteMouseReport();
-			   MouseStatus.mouse_button_action_previous_btn[0] = usb->mouse->buttons[0];
-			   MouseStatus.mouse_button_action_previous_btn[1] = usb->mouse->buttons[1];
-		   }
-
-	   }
-
-	   if  (MouseStatus.mouse_button_action == 0x02 || MouseStatus.mouse_button_action == 0x03)
-	   {
-		   if ( (MouseStatus.mouse_button_action_previous_btn[0] != usb->mouse->buttons[0]) || (MouseStatus.mouse_button_action_previous_btn[1] != usb->mouse->buttons[1]) )
-		  	{
-		  		SendAbsoluteMouseReport();
-		  		MouseStatus.mouse_button_action_previous_btn[0] = usb->mouse->buttons[0];
-		  		MouseStatus.mouse_button_action_previous_btn[1] = usb->mouse->buttons[1];
-		  	}
-
-	   }
-
-
-	 }
-
-  if (MouseState==MOUSE_KEYCODE)
- 	 {
-	   	   HID_KEYBD_Info_TypeDef mouse_keycode_keyboard = {0};
-
-	   	   //Handle X coordinates
-	   	   if(abs(usb->mouse->x) > MouseStatus.mouse_keycode_delta_x)
-	   	   {
-	   		   if (usb->mouse->x > 0)
-	   		   {
-	   			   mouse_keycode_keyboard.keys[0] = KEY_RIGHTARROW;
-	   		   }
-	   		   else
-	   		   {
-	   			   mouse_keycode_keyboard.keys[0] = KEY_LEFTARROW;
-	   		   }
-	   	   }
-
-	   	   //Handle Y coordinates
-	   	   if(abs(usb->mouse->y) > MouseStatus.mouse_keycode_delta_y)
-	   	   {
-	   		   if (usb->mouse->y > 0)
-	   		   {
-	   			 mouse_keycode_keyboard.keys[1] = KEY_UPARROW;
-	   		   }
-	   		   else
-	   		   {
-	   			 mouse_keycode_keyboard.keys[1] = KEY_DOWNARROW;
-	   		   }
-
-	   	   }
-	   	   //Handle buttons assume Mouse button action = MOUSE_BUTTON_ACTION_KEYCODE
-	   	   if(usb->mouse->buttons[0]==1)
-	   	   {
-	   		   mouse_keycode_keyboard.keys[2] = 0xF0;
-	   	   }
-
-	   	   if(usb->mouse->buttons[1]==1)
-	   	   {
-	   		   mouse_keycode_keyboard.keys[3] = 0xF1;
-	   	   }
-
-	   	   processKbd(&mouse_keycode_keyboard);
-	   	   mouse_keycode_keyboard.keys[0] = 0x00;
-	   	   mouse_keycode_keyboard.keys[1] = 0x00;
-	   	   processKbd(&mouse_keycode_keyboard);
- 	 }
-
-
-
-}
 
 void PrintReport(void)
 {
@@ -424,7 +287,7 @@ void PrintReport(void)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	ResetAllStates();
+ResetAllStates();
 
   /* USER CODE END 1 */
 
@@ -510,35 +373,172 @@ Y                   ; delta y as twos complement integer
 */
  if (usb!=NULL&&usb->mouse!=NULL)
  {
-	 HandleMouse();
+	 //SET Y=0 AT BOTTOM assume it means inverting Y delta (?)
+
+		if (MouseStatus.mouse_y_position == MOUSE_Y0_AT_BOTTOM )
+		 {
+			 usb->mouse->x = (usb->mouse->x) * -1;
+		 }
+
+
+		switch(MouseState)
+		{
+
+			case MOUSE_DISABLED:
+			break;
+
+			case MOUSE_RELATIVE:
+				;
+				uint8_t mouse[3] = {0};
+				mouse[0] = 0xF8;
+				mouse[0]= mouse[0]|(usb->mouse->buttons[0]<<1);
+				mouse[0]= mouse[0]|(usb->mouse->buttons[1]);
+				if (abs(usb->mouse->x)>=(MouseStatus.mouse_threshold_x)) mouse[1] = usb->mouse->x;
+				if (abs(usb->mouse->y)>=(MouseStatus.mouse_threshold_y)) mouse[2] = usb->mouse->y;
+
+				__disable_irq();
+				HAL_UART_Transmit(&huart2, mouse, 3, 10);
+				__enable_irq();
+			break;
+
+
+			case MOUSE_ABSOLUTE:
+
+				   MouseStatus.absolute_mouse_btn[0] = usb->mouse->buttons[0];
+				   MouseStatus.absolute_mouse_btn[1] = usb->mouse->buttons[1];
+
+				   int new_x_coordinate =  (MouseStatus.absolute_mouse_x) + ((usb->mouse->x) / MouseStatus.mouse_scale_x);
+				   if (new_x_coordinate < 0)
+					   {
+					   new_x_coordinate = 0 ;
+					   }
+				   	   	   else if (new_x_coordinate > MouseStatus.absolute_mouse_max_x)
+				   	   	   {
+				   	   		   new_x_coordinate = MouseStatus.absolute_mouse_max_x;
+				   	   	   }
+
+
+				   int new_y_coordinate =  (MouseStatus.absolute_mouse_y) + ((usb->mouse->y) / MouseStatus.mouse_scale_y);
+				   if (new_y_coordinate < 0)
+					   {
+					   	   new_y_coordinate = 0;
+					   }
+				   	   	   else if (new_y_coordinate > MouseStatus.absolute_mouse_max_y )
+				   	   	   {
+				   	   		   	   new_y_coordinate = MouseStatus.absolute_mouse_max_y;
+				   	   	   }
+
+				   MouseStatus.absolute_mouse_x = (uint16_t)new_x_coordinate;
+				   MouseStatus.absolute_mouse_y = (uint16_t)new_y_coordinate;
+
+				   //Action as per Mouse Button action
+
+				   if  (MouseStatus.mouse_button_action == 0x01 || MouseStatus.mouse_button_action == 0x03 )
+				   {
+					   if ( (MouseStatus.mouse_button_action_previous_btn[0] != usb->mouse->buttons[0]) || (MouseStatus.mouse_button_action_previous_btn[1] != usb->mouse->buttons[1]) )
+					   {
+						   SendAbsoluteMouseReport();
+						   MouseStatus.mouse_button_action_previous_btn[0] = usb->mouse->buttons[0];
+						   MouseStatus.mouse_button_action_previous_btn[1] = usb->mouse->buttons[1];
+					   }
+
+				   }
+
+				   if  (MouseStatus.mouse_button_action == 0x02 || MouseStatus.mouse_button_action == 0x03)
+				   {
+					   if ( (MouseStatus.mouse_button_action_previous_btn[0] != usb->mouse->buttons[0]) || (MouseStatus.mouse_button_action_previous_btn[1] != usb->mouse->buttons[1]) )
+					  	{
+					  		SendAbsoluteMouseReport();
+					  		MouseStatus.mouse_button_action_previous_btn[0] = usb->mouse->buttons[0];
+					  		MouseStatus.mouse_button_action_previous_btn[1] = usb->mouse->buttons[1];
+					  	}
+
+				   }
+			break;
+
+
+
+		case MOUSE_KEYCODE:
+			;
+		   	   HID_KEYBD_Info_TypeDef mouse_keycode_keyboard = {0};
+
+		   	   //Handle X coordinates
+		   	   if(abs(usb->mouse->x) > MouseStatus.mouse_keycode_delta_x)
+		   	   {
+		   		   if (usb->mouse->x > 0)
+		   		   {
+		   			   mouse_keycode_keyboard.keys[0] = KEY_RIGHTARROW;
+		   		   }
+		   		   else
+		   		   {
+		   			   mouse_keycode_keyboard.keys[0] = KEY_LEFTARROW;
+		   		   }
+		   	   }
+
+		   	   //Handle Y coordinates
+		   	   if(abs(usb->mouse->y) > MouseStatus.mouse_keycode_delta_y)
+		   	   {
+		   		   if (usb->mouse->y > 0)
+		   		   {
+		   			 mouse_keycode_keyboard.keys[1] = KEY_UPARROW;
+		   		   }
+		   		   else
+		   		   {
+		   			 mouse_keycode_keyboard.keys[1] = KEY_DOWNARROW;
+		   		   }
+
+		   	   }
+		   	   //Handle buttons assume Mouse button action = MOUSE_BUTTON_ACTION_KEYCODE
+		   	   if(usb->mouse->buttons[0]==1)
+		   	   {
+		   		   mouse_keycode_keyboard.keys[2] = 0xF0;
+		   	   }
+
+		   	   if(usb->mouse->buttons[1]==1)
+		   	   {
+		   		   mouse_keycode_keyboard.keys[3] = 0xF1;
+		   	   }
+
+		   	   processKbd(&mouse_keycode_keyboard);
+		   	   mouse_keycode_keyboard.keys[0] = 0x00;
+		   	   mouse_keycode_keyboard.keys[1] = 0x00;
+		   	   processKbd(&mouse_keycode_keyboard);
+	 	 break;
+
+	 	 }//End of case statement
+
  }
 
 
 
 
 
- //handle even joy
+ //handle joy
  if(usb!=NULL&&usb->gamepad1!=NULL)
  {
-	 //variables
-	 uint8_t joy1_package_event[2] = {0};
+	 //change values of variables only if data differes.
+	 if(JoystickStatus.joystick_previous_data1 != usb->gamepad1)
+	 		{
+		 	 JoystickStatus.joystick_data1 = usb->gamepad1;
+		 	 JoystickStatus.joystick_previous_data1 = JoystickStatus.joystick_data1;
 
-	 //set data for interrogation mode
-	 JoystickStatus.joystick_data1 = *usb->gamepad1;
+		 	 	if (JoystickState==JOYSTICK_EVENT_REPORTING)
+		 	 		 {
+		 	 		 	 	uint8_t joy1_package_event[2] = {0};
+		 	 				joy1_package_event[0] = 0xFF;
+		 	 				joy1_package_event[1] = MapJoystick(JoystickStatus.joystick_data1);
+		 	 				__disable_irq();
+		 	 				HAL_UART_Transmit(&huart2, joy1_package_event, 2, 100);
+		 	 				__enable_irq();
+		 	 			}
 
-	 //send data for event mode
-	if (JoystickState==JOYSTICK_EVENT_REPORTING)
-	 {
-		if(JoystickStatus.joystick_previous_data1 != JoystickStatus.joystick_data1)
-		{
-			joy1_package_event[0] = 0xFE;
-			joy1_package_event[1] = MapJoystick(JoystickStatus.joystick_data1);
-			HAL_UART_Transmit(&huart2, joy1_package_event, 2, 10);
-		}
+	 		}
+
+
 	 }
-	JoystickStatus.joystick_previous_data1 = JoystickStatus.joystick_data1;
 
- }
+
+
 
 
     /* USER CODE BEGIN 3 */
@@ -753,15 +753,9 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-
+	printf("%X \r\n",RxBuffer[0]);
   /* Prevent unused argument(s) compilation warning */
   UNUSED(huart);
-
-  	  if (RxBuffer[0]!=0x0D)
-  	  {
-  		  printf("%X \r\n",RxBuffer[0]);
-  	  }
-
 
   //Followup requests
   switch (RxPrev)
@@ -907,6 +901,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		   return;
 	  break;
 
+	  case DISABLE_MOUSE:
+		  MouseState = MOUSE_DISABLED;
+	  break;
+
 
 	  case SET_JOYSTICK_EVENT_REPORTING:
 	  	  	JoystickState = JOYSTICK_EVENT_REPORTING;
@@ -939,6 +937,22 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		  HAL_UART_Receive_IT(&huart2, RxBuffer, 2);
 		  return;
 	  break;
+
+	  case INTERROGATE_TIME_OF_DAT_CLOCK:
+
+		  dat_clock[0] = 0xFC;
+		  dat_clock[1] = 95;
+		  dat_clock[2] = 02;
+		  dat_clock[3] = 11;
+
+		  dat_clock[4] = 10;
+		  dat_clock[5] = 10;
+		  dat_clock[6] = 10;
+
+
+		  HAL_UART_Transmit(&huart2, dat_clock, 7, 20);
+		  break;
+
 
 
   }
